@@ -35,7 +35,8 @@
   );
   transform: scaleX(-1); /* ← 좌우 반전 포인트 */
   transform-origin: center;
-  box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.06); /* 왼쪽 면 음영 */
+  box-shadow: inset 6px 0 0 rgba(0, 0, 0, 0.06);
+  /* 왼쪽 면 음영 */
 }
 /* 보드 안에서만 블렌딩 계산되도록 */
 #board {
