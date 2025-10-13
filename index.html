@@ -31,7 +31,7 @@
         overflow: hidden;
       }
 
-      /* 상단: 초기화 + 보드들 버튼 */
+      /* 초기화 버튼 */
       #reset {
         position: fixed;
         top: 14px;
@@ -70,7 +70,7 @@
         transform: translateY(1px);
       }
 
-      /* 보드 목록 패널 (우상단) */
+      /* 보드 관리 버튼 */
       #boardsPanel {
         position: fixed;
         top: 60px;
@@ -220,7 +220,7 @@
         box-shadow: inset -6px 0 0 rgba(0, 0, 0, 0.06);
       }
 
-      /* 입력창: 완전 투명 + 테두리 제거 */
+      /* 입력창 */
       #word {
         flex: 1;
         height: 52px;
@@ -236,7 +236,7 @@
         box-shadow: none;
       }
 
-      /* 테이프 뜯기 버튼 */
+      /* 테이프 생성 버튼 */
       #add {
         height: 52px;
         min-width: 96px;
@@ -256,7 +256,7 @@
         transform: translateY(1px);
       }
 
-      /* === 테이프 === */
+      /* 테이프 코드임 중요중요중요중요중요 */
       .tape {
         position: absolute;
         min-width: var(--tapeW);
@@ -305,7 +305,7 @@
       }
       .tape.stuck {
         --tapeOpacity: 1;
-        /* filter: drop-shadow(0 1px 0.2px rgba(0, 0, 0, 0.22)); */
+
         cursor: default;
       }
 
@@ -323,7 +323,7 @@
         z-index: 30;
       }
 
-      /* 토마토 이스터에그 */
+      /* 토마토 이스터에그 김지안이 넣어달란다.. */
       .tomato {
         position: absolute;
         top: -60px;
@@ -383,7 +383,6 @@
     <button id="reset" type="button">초기화</button>
     <button id="boardsBtn" type="button">보드 관리</button>
 
-    <!-- 보드 목록 패널 -->
     <aside id="boardsPanel" aria-label="보드 목록">
       <div id="boardsHeader">
         <div class="title">보드 관리</div>
@@ -425,11 +424,9 @@
         var addBtn = document.getElementById('add');
         var resetBtn = document.getElementById('reset');
 
-        /* === 멀티 보드 저장소 키 === */
         var LS_MULTI = 'tapeBoard_ascii_multi_v1';
-        var LS_LEGACY = 'tapeBoard_ascii_v1'; // 과거 단일 저장 호환
+        var LS_LEGACY = 'tapeBoard_ascii_v1';
 
-        /* CSS 변수 읽기 */
         function cssVar(pxName) {
           var v = getComputedStyle(document.documentElement)
             .getPropertyValue(pxName)
@@ -439,7 +436,6 @@
         var TAPE_W = cssVar('--tapeW');
         var TAPE_H = cssVar('--tapeH');
 
-        /* 유틸 */
         function uuid() {
           return window.crypto && crypto.randomUUID
             ? crypto.randomUUID()
@@ -457,12 +453,9 @@
           }
         }
 
-        /* 멀티 보드 상태 */
-        var store = loadStore(); // { boards: {id:{id,name,items,updatedAt}}, activeId }
-        ensureStore(); // 최소 1개 보장
-        renderActiveBoard(); // 화면에 그리기
-
-        /* ====== 단일 보드 UI/로직 (원본) ====== */
+        var store = loadStore();
+        ensureStore();
+        renderActiveBoard();
 
         function toast(msg) {
           var t = document.createElement('div');
@@ -493,7 +486,6 @@
           return { items: arr };
         }
 
-        /* save()를 멀티 보드 스토어에 연결 */
         function save() {
           var s = snapshot();
           var cur = getActiveBoard();
@@ -598,8 +590,8 @@
 
         function addRandomChips(tapeEl) {
           var h = TAPE_H;
-          var countLeft = 5 + Math.floor(Math.random() * 3); // 5~7개
-          var countRight = 5 + Math.floor(Math.random() * 3); // 5~7개
+          var countLeft = 5 + Math.floor(Math.random() * 3);
+          var countRight = 5 + Math.floor(Math.random() * 3);
           var W_MIN = 6,
             W_MAX = 14,
             H_MIN = 6,
@@ -674,7 +666,6 @@
           return n;
         }
 
-        /* 토마토 이스터에그 */
         function dropTomato() {
           var t = document.createElement('div');
           t.className = 'tomato';
@@ -732,17 +723,15 @@
 
         resetBtn.addEventListener('click', function () {
           clearCanvas();
-          save(); /* 현재 보드 비우고 저장 */
+          save();
           toast('현재 보드 초기화 완료');
         });
-
-        /* ====== 멀티 보드: 저장소/패널 ====== */
 
         function loadStore() {
           try {
             var raw = localStorage.getItem(LS_MULTI);
             if (raw) return JSON.parse(raw);
-            // 레거시 마이그레이션(단일 저장 -> 멀티 보드)
+
             var legacy = localStorage.getItem(LS_LEGACY);
             if (legacy) {
               var legacyData = JSON.parse(legacy);
@@ -768,7 +757,7 @@
           try {
             localStorage.setItem(LS_MULTI, JSON.stringify(store));
           } catch (e) {}
-          renderBoardsPanel(); // 목록 새로고침
+          renderBoardsPanel();
         }
 
         function ensureStore() {
@@ -792,7 +781,7 @@
 
         function setActiveBoard(id) {
           if (!store.boards[id]) return;
-          // 현재 보드 저장 후 스위치
+
           save();
           store.activeId = id;
           persist();
@@ -861,7 +850,6 @@
           toast('보드 삭제');
         }
 
-        /* ====== 패널 UI ====== */
         var boardsBtn = document.getElementById('boardsBtn');
         var boardsPanel = document.getElementById('boardsPanel');
         var boardsList = document.getElementById('boardsList');
@@ -902,7 +890,7 @@
           ids.sort(function (a, b) {
             var A = store.boards[a].updatedAt || '',
               B = store.boards[b].updatedAt || '';
-            return A > B ? -1 : A < B ? 1 : 0; // 최근 수정 순
+            return A > B ? -1 : A < B ? 1 : 0;
           });
 
           ids.forEach(function (id) {
@@ -948,9 +936,9 @@
               var nn = prompt('복제본 이름', (b.name || '보드') + ' 복제');
               if (nn && nn.trim()) {
                 var curActive = store.activeId;
-                store.activeId = id; // 해당 보드 기준으로 복제
+                store.activeId = id;
                 duplicateActiveBoard(nn.trim());
-                store.activeId = curActive; // 원래 보드로 복귀(복제는 자동 전환되므로 유지하려면 생략 가능)
+                store.activeId = curActive;
               }
             });
             delBtn.addEventListener('click', function () {
@@ -975,7 +963,6 @@
           });
         }
 
-        /* 최초 패널 렌더 */
         renderBoardsPanel();
       })();
     </script>
