@@ -16,7 +16,6 @@
         --tapeOpacity: 0.5;
         --tint: #ffffff;
         --tintOpacity: 0.2;
-        mix-blend-mode: multiply;
       }
       * {
         box-sizing: border-box;
@@ -345,7 +344,7 @@
         background: linear-gradient(180deg, var(--scotch-1), var(--scotch-2));
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
           0 -1px 0 rgba(0, 0, 0, 0.05) inset, 0 6px 12px rgba(0, 0, 0, 0.06);
-        opacity: var(--tapeOpacity, 0.3);
+        opacity: var(--tapeOpacity, 0.5);
         background-clip: padding-box;
         pointer-events: none;
         z-index: 0;
@@ -355,7 +354,7 @@
         position: absolute;
         inset: 0;
         background: var(--tint, #ffd24d);
-        opacity: var(--tintOpacity, 0.2);
+        opacity: var(--tintOpacity, 0.4);
         mix-blend-mode: multiply;
         pointer-events: none;
         z-index: 0;
