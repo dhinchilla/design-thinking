@@ -1,1 +1,1 @@
-node.style.setProperty('--tapeOpacity', '0.7');
+node.style.setProperty('--tapeOpacity', '1');
