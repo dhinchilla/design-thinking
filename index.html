@@ -13,9 +13,9 @@
         --bar-h: 96px;
         --tapeW: 60px;
         --tapeH: 40px;
-        --tapeOpacity: 0.5;
+        --tapeOpacity: 0.5; /* 그룹(몸통+칩) 전체 불투명도 */
         --tint: #ffffff;
-        --tintOpacity: 0.2;
+        --tintOpacity: 0.5;
       }
       * {
         box-sizing: border-box;
@@ -160,19 +160,19 @@
         font-size: 12px;
       }
 
-      /* 보드 캔버스 */
+      /* 캔버스 */
       #board {
         position: relative;
         height: calc(100% - var(--bar-h) - 16px);
         margin: 8px;
         border-radius: 12px;
-        background: #ffffff;
+        background: #fff;
         box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
         isolation: isolate;
         overflow: hidden;
       }
 
-      /* ★ 텍스트 맨 위에 */
+      /* 오버레이 라벨 (최상단) */
       #labelLayer {
         position: absolute;
         inset: 0;
@@ -194,9 +194,10 @@
         mix-blend-mode: normal;
         opacity: 1;
         filter: none;
+        transform-origin: center center;
       }
 
-      /* 입력 바 */
+      /* 하단 입력 바 */
       #bar {
         position: fixed;
         left: -20px;
@@ -237,7 +238,6 @@
         position: relative;
         z-index: 1;
       }
-
       .roll .tint-preview {
         position: absolute;
         inset: 0;
@@ -248,7 +248,6 @@
         background: var(--tint);
         opacity: var(--tintOpacity);
       }
-
       .roll:after {
         content: '';
         position: absolute;
@@ -260,6 +259,8 @@
         pointer-events: none;
         background: var(--tint);
         opacity: var(--tintOpacity);
+        mix-blend-mode: multiply;
+        border-radius: 3px;
         clip-path: polygon(
           0 0,
           60% 8%,
@@ -273,12 +274,9 @@
           100% 100%,
           0 100%
         );
-        mix-blend-mode: multiply;
-        border-radius: 3px;
         box-shadow: inset -6px 0 0 rgba(0, 0, 0, 0.06);
       }
 
-      /* 색 지정 버튼 */
       #word {
         flex: 1;
         height: 52px;
@@ -306,7 +304,6 @@
         cursor: pointer;
       }
 
-      /* 버튼 */
       #add {
         height: 52px;
         min-width: 96px;
@@ -336,7 +333,35 @@
         justify-content: center;
         user-select: none;
         cursor: grab;
+        transform-origin: center center;
+        -webkit-tap-highlight-color: transparent;
+        /* ⛔ 여기서 multiply 제거 → 그룹(.gfx)에서 처리 */
       }
+      /* 선택 표시 */
+      .tape.selected::before {
+        content: '';
+        position: absolute;
+        pointer-events: none;
+        z-index: 2;
+        left: -20px;
+        right: -20px;
+        top: -6px;
+        bottom: -6px;
+        border: 2px solid #2b78ff;
+        border-radius: 12px;
+        mix-blend-mode: normal;
+      }
+
+      /* ▼ 그룹 래퍼: 이 한 덩어리를 배경과 multiply */
+      .tape .gfx {
+        position: absolute;
+        inset: 0;
+        mix-blend-mode: multiply;
+        opacity: var(--tapeOpacity);
+        pointer-events: none; /* 이벤트는 .tape가 받음 */
+      }
+
+      /* 내부 레이어(몸통/색)는 서로 어둡게 안 겹치게 불투명 유지 */
       .tape .bg {
         position: absolute;
         inset: 0;
@@ -344,28 +369,26 @@
         background: linear-gradient(180deg, var(--scotch-1), var(--scotch-2));
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
           0 -1px 0 rgba(0, 0, 0, 0.05) inset, 0 6px 12px rgba(0, 0, 0, 0.06);
-        opacity: var(--tapeOpacity, 0.5);
+        opacity: 1;
         background-clip: padding-box;
-        pointer-events: none;
         z-index: 0;
-        mix-blend-mode: multiply;
       }
       .tape .tint {
         position: absolute;
         inset: 0;
         background: var(--tint, #ffd24d);
-        opacity: var(--tintOpacity, 0.4);
+        opacity: var(--tintOpacity);
         mix-blend-mode: multiply;
-        pointer-events: none;
-        z-index: 0;
+        z-index: 1;
       }
+
       .tape .chip {
         position: absolute;
         background: linear-gradient(180deg, var(--scotch-1), var(--scotch-2));
-        opacity: var(--tapeOpacity, 0.9);
-        pointer-events: none;
-        z-index: -1;
+        opacity: 1; /* 내부끼리는 안 어두워지도록 1 */
         border-radius: 2px;
+        z-index: 0;
+        /* 칩 자신은 multiply 안 함(그룹에서 한 번만) */
       }
       .tape .chip::after {
         content: '';
@@ -373,16 +396,14 @@
         inset: 0;
         border-radius: 2px;
         background: var(--tint, #ffd24d);
-        opacity: var(--tintOpacity, 0.4);
-        mix-blend-mode: multiply;
+        opacity: var(--tintOpacity);
+        mix-blend-mode: multiply; /* 색감은 몸통과만 곱연산 */
       }
 
       .tape .label {
         display: none;
       }
-
       .tape.stuck {
-        --tapeOpacity: 1;
         cursor: default;
       }
 
@@ -476,7 +497,6 @@
     </aside>
 
     <main id="board" aria-label="보드">
-      <!-- ★ 텍스트 오버레이 레이어 -->
       <div id="labelLayer" aria-hidden="true"></div>
     </main>
 
@@ -546,6 +566,8 @@
         }
 
         var zStack = 100;
+        var selectedTape = null;
+        var rotateDragging = false; // 회전 드래그 중인지
 
         var store = loadStore();
         ensureStore();
@@ -559,7 +581,7 @@
           document.body.appendChild(t);
           setTimeout(function () {
             t && t.parentNode && t.parentNode.removeChild(t);
-          }, 1400);
+          }, 1200);
         }
 
         function snapshot() {
@@ -579,9 +601,13 @@
               opacity:
                 parseFloat(
                   getComputedStyle(n).getPropertyValue('--tapeOpacity')
-                ) || 0.88,
+                ) || 0.5,
               color: n.dataset.color || '#ffd24d',
-              tintOpacity: 0.4,
+              tintOpacity:
+                parseFloat(
+                  getComputedStyle(n).getPropertyValue('--tintOpacity')
+                ) || 0.3,
+              rot: parseFloat(n.dataset.rot || '0') || 0,
             });
           });
           return { items: arr };
@@ -600,6 +626,8 @@
             n.remove();
           });
           labelLayer.innerHTML = '';
+          selectedTape = null;
+          rotateDragging = false;
         }
         function loadItemsToCanvas(items) {
           clearCanvas();
@@ -622,15 +650,52 @@
           if (!ol) return;
           var rB = board.getBoundingClientRect();
           var rN = tapeEl.getBoundingClientRect();
-          var left = rN.left - rB.left;
-          var top = rN.top - rB.top;
+          var left = rN.left - rB.left,
+            top = rN.top - rB.top;
           ol.style.left = left + 'px';
           ol.style.top = top + 'px';
           ol.style.width = rN.width + 'px';
           ol.style.height = rN.height + 'px';
+          var deg = parseFloat(tapeEl.dataset.rot || '0') || 0;
+          ol.style.transform = 'rotate(' + deg + 'deg)';
         }
 
-        /* === 드래그 === */
+        /* 선택 & 회전 모드 토글 */
+        function clearSelection() {
+          if (selectedTape) {
+            selectedTape.classList.remove('selected', 'rotate-mode');
+            selectedTape = null;
+          }
+          rotateDragging = false;
+        }
+        function selectTape(node) {
+          if (selectedTape && selectedTape !== node) {
+            selectedTape.classList.remove('selected', 'rotate-mode');
+          }
+          selectedTape = node;
+          if (selectedTape) selectedTape.classList.add('selected');
+        }
+        function enterRotateMode(node) {
+          selectTape(node);
+          if (selectedTape) selectedTape.classList.add('rotate-mode');
+        }
+        function exitRotateMode() {
+          if (selectedTape) selectedTape.classList.remove('rotate-mode');
+          rotateDragging = false;
+        }
+
+        /* 회전 스냅 설정 */
+        var SNAP_ZERO_DEG = 6; // ±6° 이내면 0°로 스냅
+        function applyRotationWithSnap(node, deg) {
+          var d = ((((deg + 180) % 360) + 360) % 360) - 180; // -180~180 정규화
+          if (Math.abs(d) <= SNAP_ZERO_DEG) {
+            setRotation(node, 0);
+          } else {
+            setRotation(node, d);
+          }
+        }
+
+        /* 드래그(이동) & 회전 */
         function makeDraggable(node) {
           var sx = 0,
             sy = 0,
@@ -638,58 +703,119 @@
             oy = 0,
             dragging = false,
             pid = null;
+
           function move(e) {
-            if (!dragging) return;
-            var dx = e.clientX - sx,
-              dy = e.clientY - sy;
-            var rB = board.getBoundingClientRect(),
-              rN = node.getBoundingClientRect();
-            var left = Math.max(6, Math.min(rB.width - rN.width - 6, ox + dx));
-            var top = Math.max(6, Math.min(rB.height - rN.height - 6, oy + dy));
-            node.style.left = left + 'px';
-            node.style.top = top + 'px';
-            syncOverlayLabelRect(node);
+            if (dragging) {
+              var dx = e.clientX - sx,
+                dy = e.clientY - sy;
+              var rB = board.getBoundingClientRect(),
+                rN = node.getBoundingClientRect();
+              var left = Math.max(
+                6,
+                Math.min(rB.width - rN.width - 6, ox + dx)
+              );
+              var top = Math.max(
+                6,
+                Math.min(rB.height - rN.height - 6, oy + dy)
+              );
+              node.style.left = left + 'px';
+              node.style.top = top + 'px';
+              syncOverlayLabelRect(node);
+            } else if (rotateDragging) {
+              var rN = node.getBoundingClientRect();
+              var cx = rN.left + rN.width / 2;
+              var cy = rN.top + rN.height / 2;
+              var rad = Math.atan2(e.clientY - cy, e.clientX - cx);
+              var deg = rad * (180 / Math.PI);
+              var snap = 2;
+              deg = Math.round(deg / snap) * snap; // 미세 스냅
+              applyRotationWithSnap(node, deg);
+            }
           }
           function up() {
-            if (!dragging) return;
+            if (dragging || rotateDragging) {
+              save();
+            }
             dragging = false;
+            rotateDragging = false;
             try {
               if (pid != null) node.releasePointerCapture(pid);
             } catch (err) {}
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
-            save();
           }
+
           node.addEventListener(
             'pointerdown',
             function (e) {
               if (node.classList.contains('stuck')) return;
               if (typeof e.button !== 'undefined' && e.button !== 0) return;
-              node.style.zIndex = ++zStack; /* 테이프 덧붙히기 */
-              var r = node.getBoundingClientRect(),
-                b = board.getBoundingClientRect();
-              sx = e.clientX;
-              sy = e.clientY;
-              ox = r.left - b.left;
-              oy = r.top - b.top;
+              e.preventDefault();
+              e.stopPropagation();
+
+              selectTape(node);
+              node.style.zIndex = ++zStack;
+
+              if (node.classList.contains('rotate-mode')) {
+                rotateDragging = true;
+              } else {
+                var r = node.getBoundingClientRect(),
+                  b = board.getBoundingClientRect();
+                sx = e.clientX;
+                sy = e.clientY;
+                ox = r.left - b.left;
+                oy = r.top - b.top;
+                dragging = true;
+              }
+
               pid = e.pointerId;
-              dragging = true;
               try {
                 if (pid != null) node.setPointerCapture(pid);
               } catch (err) {}
               window.addEventListener('pointermove', move, { passive: true });
               window.addEventListener('pointerup', up, { passive: true });
-              e.preventDefault();
             },
             { passive: false }
           );
+
+          node.addEventListener('click', function () {
+            // 한 번 클릭 → 회전 모드 토글
+            if (node.classList.contains('rotate-mode')) {
+              exitRotateMode();
+            } else {
+              enterRotateMode(node);
+            }
+          });
+
           node.addEventListener('dblclick', function () {
             node.classList.toggle('stuck');
             save();
           });
         }
 
-        /* === 삼각형 조각 === */
+        // 보드 빈 곳 클릭 시 선택/회전 모드 해제
+        board.addEventListener('mousedown', function (e) {
+          if (e.target === board) {
+            clearSelection();
+          }
+        });
+        window.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            clearSelection();
+          }
+        });
+
+        /* 회전 유틸 */
+        function setRotation(tapeEl, deg) {
+          tapeEl.dataset.rot = String(deg);
+          tapeEl.style.transform = 'rotate(' + deg + 'deg)';
+          syncOverlayLabelRect(tapeEl);
+        }
+        function getRotation(tapeEl) {
+          return parseFloat(tapeEl.dataset.rot || '0') || 0;
+        }
+
+        /* 삼각 칩 */
         function triClip(direction) {
           return direction === 'left'
             ? 'polygon(0% 50%, 100% 0%, 100% 100%)'
@@ -712,7 +838,7 @@
           }
           return positions;
         }
-        function addRandomChips(tapeEl) {
+        function addRandomChips(gfxEl) {
           var h = TAPE_H,
             countLeft = 6 + Math.floor(Math.random() * 3),
             countRight = 6 + Math.floor(Math.random() * 3);
@@ -739,7 +865,7 @@
             } else {
               chip.style.right = -w + 0.195 + 'px';
             }
-            tapeEl.appendChild(chip);
+            gfxEl.appendChild(chip);
           }
           var posLeft = stratifiedPositions(h, countLeft, 0),
             posRight = stratifiedPositions(h, countRight, 0);
@@ -755,7 +881,7 @@
           });
         }
 
-        /* ★ 텍스트 길이가 늘어나면 테이프도 늘어나긔 */
+        /* 텍스트 길이에 따른 테이프 폭 */
         function measureTextWidth(text) {
           var m = document.createElement('span');
           m.style.position = 'absolute';
@@ -773,13 +899,13 @@
           return w;
         }
         function setTapeWidthByText(tapeEl, text) {
-          var minW = TAPE_W; // 최소 너비
-          var contentW = measureTextWidth(text);
-          var finalW = Math.max(minW, contentW);
+          var minW = TAPE_W,
+            contentW = measureTextWidth(text),
+            finalW = Math.max(minW, contentW);
           tapeEl.style.width = finalW + 'px';
         }
 
-        /* 테이프 생성 */
+        /* 생성 */
         function spawn(opt) {
           opt = opt || {};
           var v = (opt.text || '').trim();
@@ -790,12 +916,14 @@
           n.className = 'tape';
           n.dataset.id = opt.id || uuid();
           n.dataset.color = color;
-          n.dataset.tintopacity = '0.4';
+          n.dataset.tintopacity = String(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              '--tintOpacity'
+            ) || '0.30'
+          ).trim();
           n.style.zIndex = ++zStack;
-
           setTapeWidthByText(n, v);
 
-          // 위치
           var x =
             typeof opt.x === 'number'
               ? opt.x
@@ -804,26 +932,44 @@
           n.style.left = x + 'px';
           n.style.top = y + 'px';
 
-          // 색 변수
           n.style.setProperty('--tint', color);
-          n.style.setProperty('--tintOpacity', '0.4');
+          n.style.setProperty(
+            '--tintOpacity',
+            getComputedStyle(document.documentElement).getPropertyValue(
+              '--tintOpacity'
+            ) || '0.30'
+          );
+          n.style.setProperty(
+            '--tapeOpacity',
+            getComputedStyle(document.documentElement).getPropertyValue(
+              '--tapeOpacity'
+            ) || '0.5'
+          );
 
-          // 레이어들
+          /* ▼ 그룹 래퍼와 내부 레이어 구성 */
+          var gfx = document.createElement('div');
+          gfx.className = 'gfx';
           var bg = document.createElement('div');
           bg.className = 'bg';
           var tint = document.createElement('div');
           tint.className = 'tint';
+          gfx.appendChild(bg);
+          gfx.appendChild(tint);
+          addRandomChips(gfx);
+          n.appendChild(gfx);
+
           var labelData = document.createElement('span');
           labelData.className = 'label';
           labelData.textContent = v;
-
-          n.appendChild(bg);
-          n.appendChild(tint);
-          addRandomChips(n);
           n.appendChild(labelData);
-          board.appendChild(n);
 
+          board.appendChild(n);
           createOverlayLabel(n, v);
+
+          /* 회전: 저장값 있으면 사용, 없으면 -15~+15 랜덤 */
+          var rot =
+            typeof opt.rot === 'number' ? opt.rot : Math.random() * 30 - 15;
+          setRotation(n, rot);
 
           if (opt.stuck) n.classList.add('stuck');
           makeDraggable(n);
@@ -851,7 +997,7 @@
           t.style.animation =
             'tomato-fall 1.0s cubic-bezier(.2,.8,.2,1) forwards';
           setTimeout(function () {
-            t.style.animation = 'tomato-fade 0.9s ease forwards';
+            t.style.animation = 'tomato-fade .9s ease forwards';
           }, 2000);
           setTimeout(function () {
             t && t.parentNode && t.parentNode.removeChild(t);
@@ -864,14 +1010,18 @@
           if (v.toLowerCase() === 'tomato') dropTomato();
           var br = document.querySelector('#bar .roll').getBoundingClientRect();
           var b = board.getBoundingClientRect();
-          spawn({
+          var n = spawn({
             text: v,
             color: colorInput.value,
             x:
               Math.random() * (board.clientWidth - (cssVar('--tapeW') + 40)) +
-              20 /* 재조정 */,
+              20,
             y: Math.max(12, br.top - b.top - (TAPE_H + 32)),
           });
+          if (n) {
+            selectTape(n);
+            enterRotateMode(n);
+          }
           input.value = '';
           input.focus();
         }
@@ -898,71 +1048,14 @@
           toast('현재 보드 초기화 완료');
         });
 
-        /* ===== 보드 관리(원본 유지) ===== */
-        function loadStore() {
-          try {
-            var raw = localStorage.getItem(LS_MULTI);
-            if (raw) return JSON.parse(raw);
-            var legacy = localStorage.getItem(LS_LEGACY);
-            if (legacy) {
-              var legacyData = JSON.parse(legacy);
-              var id = uuid();
-              var initial = { boards: {}, activeId: id };
-              initial.boards[id] = {
-                id,
-                name: '내 보드',
-                items: legacyData.items || [],
-                updatedAt: nowISO(),
-              };
-              localStorage.setItem(LS_MULTI, JSON.stringify(initial));
-              return initial;
-            }
-          } catch (e) {}
-          return { boards: {}, activeId: null };
-        }
-        function persist() {
-          try {
-            localStorage.setItem(LS_MULTI, JSON.stringify(store));
-          } catch (e) {}
-          renderBoardsPanel();
-        }
-        function ensureStore() {
-          if (!store || !store.boards) store = { boards: {}, activeId: null };
-          if (!store.activeId || !store.boards[store.activeId]) {
-            var id = uuid();
-            store.boards[id] = {
-              id,
-              name: '보드 1',
-              items: [],
-              updatedAt: nowISO(),
-            };
-            store.activeId = id;
-            persist();
-          }
-        }
-        function getActiveBoard() {
-          return store.boards[store.activeId] || null;
-        }
-        function setActiveBoard(id) {
-          if (!store.boards[id]) return;
-          save();
-          store.activeId = id;
-          persist();
-          renderActiveBoard();
-          toast('보드 전환: ' + (store.boards[id].name || id));
-        }
-        function renderActiveBoard() {
-          var cur = getActiveBoard();
-          clearCanvas();
-          if (cur) loadItemsToCanvas(cur.items || []);
-        }
-
+        /* 보드 관리 */
         var boardsBtn = document.getElementById('boardsBtn');
         var boardsPanel = document.getElementById('boardsPanel');
         var boardsList = document.getElementById('boardsList');
         var newBoardBtn = document.getElementById('newBoard');
         var saveAsBtn = document.getElementById('saveAsBoard');
         var closePanel = document.getElementById('closePanel');
+
         boardsBtn.addEventListener('click', function () {
           renderBoardsPanel();
           boardsPanel.style.display =
@@ -973,18 +1066,14 @@
         });
         newBoardBtn.addEventListener('click', function () {
           var name = prompt('새 보드 이름을 입력하세요', '새 보드');
-          if (name && name.trim()) {
-            createBoard(name.trim());
-          }
+          if (name && name.trim()) createBoard(name.trim());
         });
         saveAsBtn.addEventListener('click', function () {
           var name = prompt(
             '새 이름으로 저장',
             (getActiveBoard()?.name || '보드') + ' 사본'
           );
-          if (name && name.trim()) {
-            duplicateActiveBoard(name.trim());
-          }
+          if (name && name.trim()) duplicateActiveBoard(name.trim());
         });
 
         function renderBoardsPanel() {
@@ -1060,6 +1149,64 @@
           });
         }
 
+        function loadStore() {
+          try {
+            var raw = localStorage.getItem(LS_MULTI);
+            if (raw) return JSON.parse(raw);
+            var legacy = localStorage.getItem(LS_LEGACY);
+            if (legacy) {
+              var legacyData = JSON.parse(legacy);
+              var id = uuid();
+              var initial = { boards: {}, activeId: id };
+              initial.boards[id] = {
+                id,
+                name: '내 보드',
+                items: legacyData.items || [],
+                updatedAt: nowISO(),
+              };
+              localStorage.setItem(LS_MULTI, JSON.stringify(initial));
+              return initial;
+            }
+          } catch (e) {}
+          return { boards: {}, activeId: null };
+        }
+        function persist() {
+          try {
+            localStorage.setItem(LS_MULTI, JSON.stringify(store));
+          } catch (e) {}
+          renderBoardsPanel();
+        }
+        function ensureStore() {
+          if (!store || !store.boards) store = { boards: {}, activeId: null };
+          if (!store.activeId || !store.boards[store.activeId]) {
+            var id = uuid();
+            store.boards[id] = {
+              id,
+              name: '보드 1',
+              items: [],
+              updatedAt: nowISO(),
+            };
+            store.activeId = id;
+            persist();
+          }
+        }
+        function getActiveBoard() {
+          return store.boards[store.activeId] || null;
+        }
+        function setActiveBoard(id) {
+          if (!store.boards[id]) return;
+          save();
+          store.activeId = id;
+          persist();
+          renderActiveBoard();
+          toast('보드 전환: ' + (store.boards[id].name || id));
+        }
+        function renderActiveBoard() {
+          var cur = getActiveBoard();
+          clearCanvas();
+          if (cur) loadItemsToCanvas(cur.items || []);
+        }
+
         function createBoard(name) {
           var id = uuid();
           store.boards[id] = {
@@ -1115,7 +1262,12 @@
         function updatePreview() {
           var color = colorInput.value;
           roll.style.setProperty('--tint', color);
-          roll.style.setProperty('--tintOpacity', '0.4');
+          roll.style.setProperty(
+            '--tintOpacity',
+            getComputedStyle(document.documentElement).getPropertyValue(
+              '--tintOpacity'
+            ) || '0.30'
+          );
           swatch.style.background = color;
           swatch.style.opacity = 1;
         }
