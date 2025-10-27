@@ -64,7 +64,6 @@
         transform: translateY(1px);
       }
 
-      /* 보드 패널 */
       #boardsPanel {
         position: fixed;
         top: 60px;
@@ -152,7 +151,6 @@
         font-size: 12px;
       }
 
-      /* 캔버스 */
       #board {
         position: relative;
         height: calc(100% - var(--bar-h) - 16px);
@@ -166,7 +164,6 @@
         overscroll-behavior: contain;
       }
 
-      /* 오버레이 라벨 */
       #labelLayer {
         position: absolute;
         inset: 0;
@@ -317,7 +314,7 @@
         transform: translateY(1px);
       }
 
-      /* === 테이프 === */
+      /* 테이프 */
       .tape {
         position: absolute;
         min-width: var(--tapeW);
@@ -562,7 +559,7 @@
         var selectedTape = null;
         var rotateDragging = false;
 
-        /* ---------- 보드 ---------- */
+        /* 보드 */
         function loadStore() {
           try {
             var raw = localStorage.getItem(LS_MULTI);
@@ -611,7 +608,7 @@
           return store.boards[store.activeId] || null;
         }
 
-        /* ---------- 토스트 중요하니 잊지말기 ---------- */
+        /* 또스트 */
         function toast(msg) {
           var t = document.createElement('div');
           t.className = 'toast';
@@ -622,7 +619,7 @@
           }, 1200);
         }
 
-        /* ---------- 테이프 스냅샷 ---------- */
+        /* 테이프 스냅숏 */
         function snapshot() {
           var arr = [],
             nodes = board.querySelectorAll('.tape');
@@ -699,7 +696,7 @@
           ol.style.transform = 'rotate(' + deg + 'deg)';
         }
 
-        /* ---------- 회전주기 ---------- */
+        /* 테이프 생성될 때 랜덤하게 회전주기 */
         function clearSelection() {
           if (selectedTape) {
             selectedTape.classList.remove('selected', 'rotate-mode');
@@ -735,7 +732,7 @@
           syncOverlayLabelRect(tapeEl);
         }
 
-        /* ---------- 고정되면 색 진하게 해줌 ---------- */
+        /* 더블클릭시 고정 */
         function setStuckAppearance(node, isStuck) {
           var curTintOp =
             parseFloat(
@@ -854,7 +851,6 @@
           tapeEl.style.width = finalW + 'px';
         }
 
-        /* ---------- 생성 ---------- */
         function spawn(opt) {
           opt = opt || {};
           var v = (opt.text || '').trim();
@@ -932,7 +928,6 @@
           return n;
         }
 
-        /* ---------- 인터랙션 ---------- */
         function submit() {
           var v = input.value.trim();
           if (!v) return;
@@ -993,7 +988,6 @@
           }
         });
 
-        /* ---------- 보드 패널 UI ---------- */
         boardsBtn.addEventListener('click', function () {
           renderBoardsPanel();
           boardsPanel.style.display =
@@ -1086,7 +1080,7 @@
           });
         }
 
-        /* ---------- 보드 저장 하는 코드 ---------- */
+        /* 보드저장하는곳 */
         function setActiveBoard(id) {
           if (!store.boards[id]) return;
           save();
