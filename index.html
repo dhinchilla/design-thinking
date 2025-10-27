@@ -32,7 +32,6 @@
           sans-serif;
         overflow: hidden;
       }
-
       /* 초기화 버튼 */
       #reset {
         position: fixed;
@@ -335,9 +334,7 @@
         cursor: grab;
         transform-origin: center center;
         -webkit-tap-highlight-color: transparent;
-        /* ⛔ 여기서 multiply 제거 → 그룹(.gfx)에서 처리 */
       }
-      /* 선택 표시 */
       .tape.selected::before {
         content: '';
         position: absolute;
@@ -351,17 +348,13 @@
         border-radius: 12px;
         mix-blend-mode: normal;
       }
-
-      /* ▼ 그룹 래퍼: 이 한 덩어리를 배경과 multiply */
       .tape .gfx {
         position: absolute;
         inset: 0;
         mix-blend-mode: multiply;
         opacity: var(--tapeOpacity);
-        pointer-events: none; /* 이벤트는 .tape가 받음 */
+        pointer-events: none;
       }
-
-      /* 내부 레이어(몸통/색)는 서로 어둡게 안 겹치게 불투명 유지 */
       .tape .bg {
         position: absolute;
         inset: 0;
@@ -381,14 +374,12 @@
         mix-blend-mode: multiply;
         z-index: 1;
       }
-
       .tape .chip {
         position: absolute;
         background: linear-gradient(180deg, var(--scotch-1), var(--scotch-2));
-        opacity: 1; /* 내부끼리는 안 어두워지도록 1 */
+        opacity: 1;
         border-radius: 2px;
         z-index: 0;
-        /* 칩 자신은 multiply 안 함(그룹에서 한 번만) */
       }
       .tape .chip::after {
         content: '';
@@ -397,9 +388,8 @@
         border-radius: 2px;
         background: var(--tint, #ffd24d);
         opacity: var(--tintOpacity);
-        mix-blend-mode: multiply; /* 색감은 몸통과만 곱연산 */
+        mix-blend-mode: multiply;
       }
-
       .tape .label {
         display: none;
       }
@@ -695,116 +685,6 @@
           }
         }
 
-        /* 드래그(이동) & 회전 */
-        function makeDraggable(node) {
-          var sx = 0,
-            sy = 0,
-            ox = 0,
-            oy = 0,
-            dragging = false,
-            pid = null;
-
-          function move(e) {
-            if (dragging) {
-              var dx = e.clientX - sx,
-                dy = e.clientY - sy;
-              var rB = board.getBoundingClientRect(),
-                rN = node.getBoundingClientRect();
-              var left = Math.max(
-                6,
-                Math.min(rB.width - rN.width - 6, ox + dx)
-              );
-              var top = Math.max(
-                6,
-                Math.min(rB.height - rN.height - 6, oy + dy)
-              );
-              node.style.left = left + 'px';
-              node.style.top = top + 'px';
-              syncOverlayLabelRect(node);
-            } else if (rotateDragging) {
-              var rN = node.getBoundingClientRect();
-              var cx = rN.left + rN.width / 2;
-              var cy = rN.top + rN.height / 2;
-              var rad = Math.atan2(e.clientY - cy, e.clientX - cx);
-              var deg = rad * (180 / Math.PI);
-              var snap = 2;
-              deg = Math.round(deg / snap) * snap; // 미세 스냅
-              applyRotationWithSnap(node, deg);
-            }
-          }
-          function up() {
-            if (dragging || rotateDragging) {
-              save();
-            }
-            dragging = false;
-            rotateDragging = false;
-            try {
-              if (pid != null) node.releasePointerCapture(pid);
-            } catch (err) {}
-            window.removeEventListener('pointermove', move);
-            window.removeEventListener('pointerup', up);
-          }
-
-          node.addEventListener(
-            'pointerdown',
-            function (e) {
-              if (node.classList.contains('stuck')) return;
-              if (typeof e.button !== 'undefined' && e.button !== 0) return;
-              e.preventDefault();
-              e.stopPropagation();
-
-              selectTape(node);
-              node.style.zIndex = ++zStack;
-
-              if (node.classList.contains('rotate-mode')) {
-                rotateDragging = true;
-              } else {
-                var r = node.getBoundingClientRect(),
-                  b = board.getBoundingClientRect();
-                sx = e.clientX;
-                sy = e.clientY;
-                ox = r.left - b.left;
-                oy = r.top - b.top;
-                dragging = true;
-              }
-
-              pid = e.pointerId;
-              try {
-                if (pid != null) node.setPointerCapture(pid);
-              } catch (err) {}
-              window.addEventListener('pointermove', move, { passive: true });
-              window.addEventListener('pointerup', up, { passive: true });
-            },
-            { passive: false }
-          );
-
-          node.addEventListener('click', function () {
-            // 한 번 클릭 → 회전 모드 토글
-            if (node.classList.contains('rotate-mode')) {
-              exitRotateMode();
-            } else {
-              enterRotateMode(node);
-            }
-          });
-
-          node.addEventListener('dblclick', function () {
-            node.classList.toggle('stuck');
-            save();
-          });
-        }
-
-        // 보드 빈 곳 클릭 시 선택/회전 모드 해제
-        board.addEventListener('mousedown', function (e) {
-          if (e.target === board) {
-            clearSelection();
-          }
-        });
-        window.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape') {
-            clearSelection();
-          }
-        });
-
         /* 회전 유틸 */
         function setRotation(tapeEl, deg) {
           tapeEl.dataset.rot = String(deg);
@@ -813,6 +693,42 @@
         }
         function getRotation(tapeEl) {
           return parseFloat(tapeEl.dataset.rot || '0') || 0;
+        }
+
+        /* ✅ 고정 상태일 때 색(진하기) 조절/복원 */
+        function setStuckAppearance(node, isStuck) {
+          var curTintOp =
+            parseFloat(
+              getComputedStyle(node).getPropertyValue('--tintOpacity')
+            ) || 0.5;
+          var curTapeOp =
+            parseFloat(
+              getComputedStyle(node).getPropertyValue('--tapeOpacity')
+            ) || 0.5;
+
+          if (isStuck) {
+            if (!node.style.getPropertyValue('--_prevTintOpacity')) {
+              node.style.setProperty('--_prevTintOpacity', String(curTintOp));
+            }
+            if (!node.style.getPropertyValue('--_prevTapeOpacity')) {
+              node.style.setProperty('--_prevTapeOpacity', String(curTapeOp));
+            }
+            node.style.setProperty(
+              '--tintOpacity',
+              String(Math.min(0.9, curTintOp + 0.18))
+            );
+            node.style.setProperty(
+              '--tapeOpacity',
+              String(Math.min(0.9, curTapeOp + 0.1))
+            );
+          } else {
+            var prevTint = node.style.getPropertyValue('--_prevTintOpacity');
+            var prevTape = node.style.getPropertyValue('--_prevTapeOpacity');
+            if (prevTint) node.style.setProperty('--tintOpacity', prevTint);
+            if (prevTape) node.style.setProperty('--tapeOpacity', prevTape);
+            node.style.removeProperty('--_prevTintOpacity');
+            node.style.removeProperty('--_prevTapeOpacity');
+          }
         }
 
         /* 삼각 칩 */
@@ -971,7 +887,10 @@
             typeof opt.rot === 'number' ? opt.rot : Math.random() * 30 - 15;
           setRotation(n, rot);
 
-          if (opt.stuck) n.classList.add('stuck');
+          if (opt.stuck) {
+            n.classList.add('stuck');
+            setStuckAppearance(n, true);
+          }
           makeDraggable(n);
 
           requestAnimationFrame(function () {
@@ -1275,6 +1194,154 @@
 
         window.addEventListener('resize', function () {
           board.querySelectorAll('.tape').forEach(syncOverlayLabelRect);
+        });
+
+        /* ====== 드래그/회전 + 더블클릭 고정/해제 (수정 핵심) ====== */
+        function makeDraggable(node) {
+          var sx = 0,
+            sy = 0,
+            ox = 0,
+            oy = 0,
+            dragging = false,
+            pid = null;
+
+          // 더블클릭(탭) 수동 판정용 상태
+          var lastDownTime = 0;
+          var lastDownX = 0;
+          var lastDownY = 0;
+          var DBL_GAP = 280; // ms
+          var DBL_DIST = 6; // px
+
+          function dist(ax, ay, bx, by) {
+            var dx = ax - bx,
+              dy = ay - by;
+            return Math.hypot(dx, dy);
+          }
+
+          function move(e) {
+            if (dragging) {
+              var dx = e.clientX - sx,
+                dy = e.clientY - sy;
+              var rB = board.getBoundingClientRect(),
+                rN = node.getBoundingClientRect();
+              var left = Math.max(
+                6,
+                Math.min(rB.width - rN.width - 6, ox + dx)
+              );
+              var top = Math.max(
+                6,
+                Math.min(rB.height - rN.height - 6, oy + dy)
+              );
+              node.style.left = left + 'px';
+              node.style.top = top + 'px';
+              syncOverlayLabelRect(node);
+            } else if (rotateDragging) {
+              var rN = node.getBoundingClientRect();
+              var cx = rN.left + rN.width / 2;
+              var cy = rN.top + rN.height / 2;
+              var rad = Math.atan2(e.clientY - cy, e.clientX - cx);
+              var deg = rad * (180 / Math.PI);
+              var snap = 2;
+              deg = Math.round(deg / snap) * snap; // 미세 스냅
+              applyRotationWithSnap(node, deg);
+            }
+          }
+          function up() {
+            if (dragging || rotateDragging) {
+              save();
+            }
+            dragging = false;
+            rotateDragging = false;
+            try {
+              if (pid != null) node.releasePointerCapture(pid);
+            } catch (err) {}
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+          }
+
+          node.addEventListener(
+            'pointerdown',
+            function (e) {
+              if (typeof e.button !== 'undefined' && e.button !== 0) return; // 좌클릭만
+              // e.preventDefault();  // 기본 클릭/더블클릭 차단하지 않도록 제거
+              e.stopPropagation();
+
+              var now = performance.now();
+              var isDouble =
+                now - lastDownTime < DBL_GAP &&
+                dist(e.clientX, e.clientY, lastDownX, lastDownY) <= DBL_DIST;
+
+              // 더블클릭(더블탭) → 고정/해제 토글 (stuck) + 색상 진하기 조절
+              if (isDouble) {
+                var willBeStuck = !node.classList.contains('stuck');
+                if (willBeStuck) {
+                  node.classList.add('stuck');
+                } else {
+                  node.classList.remove('stuck');
+                }
+                setStuckAppearance(node, willBeStuck);
+                exitRotateMode();
+                save();
+                // 다음 클릭으로 이어지지 않게 초기화
+                lastDownTime = 0;
+                return;
+              }
+
+              // 싱글 클릭 처리 시작
+              lastDownTime = now;
+              lastDownX = e.clientX;
+              lastDownY = e.clientY;
+
+              selectTape(node);
+              node.style.zIndex = ++zStack;
+
+              // stuck이면 드래그/회전 시작 금지. 선택/회전모드 토글은 click에서 처리.
+              if (!node.classList.contains('stuck')) {
+                if (node.classList.contains('rotate-mode')) {
+                  rotateDragging = true;
+                } else {
+                  var r = node.getBoundingClientRect(),
+                    b = board.getBoundingClientRect();
+                  sx = e.clientX;
+                  sy = e.clientY;
+                  ox = r.left - b.left;
+                  oy = r.top - b.top;
+                  dragging = true;
+                }
+              }
+
+              pid = e.pointerId;
+              try {
+                if (pid != null) node.setPointerCapture(pid);
+              } catch (err) {}
+              window.addEventListener('pointermove', move, { passive: true });
+              window.addEventListener('pointerup', up, { passive: true });
+            },
+            { passive: false }
+          );
+
+          node.addEventListener('click', function () {
+            // 한 번 클릭 → 회전 모드 토글 (stuck이어도 토글만 허용)
+            if (node.classList.contains('rotate-mode')) {
+              exitRotateMode();
+            } else {
+              enterRotateMode(node);
+            }
+          });
+
+          // (기존) dblclick 리스너는 사용하지 않음 — 수동 판정으로 일원화
+        }
+
+        // 보드 빈 곳 클릭 시 선택/회전 모드 해제
+        board.addEventListener('mousedown', function (e) {
+          if (e.target === board) {
+            clearSelection();
+          }
+        });
+        window.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            clearSelection();
+          }
         });
       })();
     </script>
