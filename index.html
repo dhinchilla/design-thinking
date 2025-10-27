@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>아카이빙 월드</title>
+    <title>테이프 아키이빙 월드</title>
     <style>
       :root {
         --bg: #f6f6f6;
@@ -13,7 +13,7 @@
         --bar-h: 96px;
         --tapeW: 60px;
         --tapeH: 40px;
-        --tapeOpacity: 0.5; /* 그룹(몸통+칩) 전체 불투명도 */
+        --tapeOpacity: 0.5;
         --tint: #ffffff;
         --tintOpacity: 0.5;
       }
@@ -31,31 +31,17 @@
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
           sans-serif;
         overflow: hidden;
-      }
-      /* 초기화 버튼 */
-      #reset {
-        position: fixed;
-        top: 14px;
-        left: 14px;
-        z-index: 20;
-        height: 36px;
-        padding: 0 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(0, 0, 0, 0.15);
-        background: #fff;
-        color: #111;
-        font-weight: 700;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      }
-      #reset:active {
-        transform: translateY(1px);
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        touch-action: manipulation;
+        overscroll-behavior: none;
       }
 
+      #reset,
       #boardsBtn {
         position: fixed;
         top: 14px;
-        right: 14px;
         z-index: 21;
         height: 36px;
         padding: 0 12px;
@@ -67,6 +53,14 @@
         cursor: pointer;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       }
+      #reset {
+        left: 14px;
+        z-index: 22;
+      }
+      #boardsBtn {
+        right: 14px;
+      }
+      #reset:active,
       #boardsBtn:active {
         transform: translateY(1px);
       }
@@ -76,7 +70,7 @@
         position: fixed;
         top: 60px;
         right: 14px;
-        z-index: 22;
+        z-index: 30;
         width: 400px;
         max-height: calc(100vh - 80px);
         background: #fff;
@@ -169,9 +163,11 @@
         box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
         isolation: isolate;
         overflow: hidden;
+        touch-action: none;
+        overscroll-behavior: contain;
       }
 
-      /* 오버레이 라벨 (최상단) */
+      /* 오버레이 라벨 */
       #labelLayer {
         position: absolute;
         inset: 0;
@@ -334,6 +330,7 @@
         cursor: grab;
         transform-origin: center center;
         -webkit-tap-highlight-color: transparent;
+        touch-action: none;
       }
       .tape.selected::before {
         content: '';
@@ -408,7 +405,7 @@
         border-radius: 10px;
         font-size: 13px;
         opacity: 0.34;
-        z-index: 30;
+        z-index: 40;
       }
 
       .tomato {
@@ -527,6 +524,13 @@
         var swatch = document.getElementById('sw');
         var roll = document.querySelector('#bar .roll');
 
+        var boardsBtn = document.getElementById('boardsBtn');
+        var boardsPanel = document.getElementById('boardsPanel');
+        var boardsList = document.getElementById('boardsList');
+        var newBoardBtn = document.getElementById('newBoard');
+        var saveAsBtn = document.getElementById('saveAsBoard');
+        var closePanel = document.getElementById('closePanel');
+
         var LS_MULTI = 'tapeBoard_ascii_multi_v2_color';
         var LS_LEGACY = 'tapeBoard_ascii_v1';
 
@@ -540,7 +544,7 @@
           TAPE_H = cssVar('--tapeH');
 
         function uuid() {
-          return window.crypto && crypto.randomUUID
+          return crypto && crypto.randomUUID
             ? crypto.randomUUID()
             : String(Date.now() + Math.random());
         }
@@ -557,13 +561,58 @@
 
         var zStack = 100;
         var selectedTape = null;
-        var rotateDragging = false; // 회전 드래그 중인지
+        var rotateDragging = false;
 
+        /* ---------- 보드 ---------- */
+        function loadStore() {
+          try {
+            var raw = localStorage.getItem(LS_MULTI);
+            if (raw) return JSON.parse(raw);
+            var legacy = localStorage.getItem(LS_LEGACY);
+            if (legacy) {
+              var legacyData = JSON.parse(legacy);
+              var id = uuid();
+              var initial = { boards: {}, activeId: id };
+              initial.boards[id] = {
+                id,
+                name: '내 보드',
+                items: legacyData.items || [],
+                updatedAt: nowISO(),
+              };
+              localStorage.setItem(LS_MULTI, JSON.stringify(initial));
+              return initial;
+            }
+          } catch (e) {}
+          return { boards: {}, activeId: null };
+        }
         var store = loadStore();
-        ensureStore();
-        renderActiveBoard();
-        updatePreview();
 
+        function ensureStore() {
+          if (!store || !store.boards) store = { boards: {}, activeId: null };
+          if (!store.activeId || !store.boards[store.activeId]) {
+            var id = uuid();
+            store.boards[id] = {
+              id,
+              name: '보드 1',
+              items: [],
+              updatedAt: nowISO(),
+            };
+            store.activeId = id;
+            persist();
+          }
+        }
+        function persist() {
+          try {
+            localStorage.setItem(LS_MULTI, JSON.stringify(store));
+          } catch (e) {}
+          renderBoardsPanel();
+        }
+
+        function getActiveBoard() {
+          return store.boards[store.activeId] || null;
+        }
+
+        /* ---------- 토스트 중요하니 잊지말기 ---------- */
         function toast(msg) {
           var t = document.createElement('div');
           t.className = 'toast';
@@ -574,6 +623,7 @@
           }, 1200);
         }
 
+        /* ---------- 테이프 스냅샷 ---------- */
         function snapshot() {
           var arr = [],
             nodes = board.querySelectorAll('.tape');
@@ -650,7 +700,7 @@
           ol.style.transform = 'rotate(' + deg + 'deg)';
         }
 
-        /* 선택 & 회전 모드 토글 */
+        /* ---------- 회전주기 ---------- */
         function clearSelection() {
           if (selectedTape) {
             selectedTape.classList.remove('selected', 'rotate-mode');
@@ -674,28 +724,19 @@
           rotateDragging = false;
         }
 
-        /* 회전 스냅 설정 */
-        var SNAP_ZERO_DEG = 6; // ±6° 이내면 0°로 스냅
+        var SNAP_ZERO_DEG = 6;
         function applyRotationWithSnap(node, deg) {
-          var d = ((((deg + 180) % 360) + 360) % 360) - 180; // -180~180 정규화
-          if (Math.abs(d) <= SNAP_ZERO_DEG) {
-            setRotation(node, 0);
-          } else {
-            setRotation(node, d);
-          }
+          var d = ((((deg + 180) % 360) + 360) % 360) - 180;
+          if (Math.abs(d) <= SNAP_ZERO_DEG) setRotation(node, 0);
+          else setRotation(node, d);
         }
-
-        /* 회전 유틸 */
         function setRotation(tapeEl, deg) {
           tapeEl.dataset.rot = String(deg);
           tapeEl.style.transform = 'rotate(' + deg + 'deg)';
           syncOverlayLabelRect(tapeEl);
         }
-        function getRotation(tapeEl) {
-          return parseFloat(tapeEl.dataset.rot || '0') || 0;
-        }
 
-        /* ✅ 고정 상태일 때 색(진하기) 조절/복원 */
+        /* ---------- 고정되면 색 진하게 해줌 ---------- */
         function setStuckAppearance(node, isStuck) {
           var curTintOp =
             parseFloat(
@@ -705,14 +746,11 @@
             parseFloat(
               getComputedStyle(node).getPropertyValue('--tapeOpacity')
             ) || 0.5;
-
           if (isStuck) {
-            if (!node.style.getPropertyValue('--_prevTintOpacity')) {
+            if (!node.style.getPropertyValue('--_prevTintOpacity'))
               node.style.setProperty('--_prevTintOpacity', String(curTintOp));
-            }
-            if (!node.style.getPropertyValue('--_prevTapeOpacity')) {
+            if (!node.style.getPropertyValue('--_prevTapeOpacity'))
               node.style.setProperty('--_prevTapeOpacity', String(curTapeOp));
-            }
             node.style.setProperty(
               '--tintOpacity',
               String(Math.min(0.9, curTintOp + 0.18))
@@ -731,7 +769,7 @@
           }
         }
 
-        /* 삼각 칩 */
+        /* ---------- 칩/사이즈 ---------- */
         function triClip(direction) {
           return direction === 'left'
             ? 'polygon(0% 50%, 100% 0%, 100% 100%)'
@@ -776,11 +814,8 @@
             chip.style.height = hh + 'px';
             chip.style.top = top + 'px';
             chip.style.clipPath = triClip(side);
-            if (side === 'left') {
-              chip.style.left = -w + 0.195 + 'px';
-            } else {
-              chip.style.right = -w + 0.195 + 'px';
-            }
+            if (side === 'left') chip.style.left = -w + 0.195 + 'px';
+            else chip.style.right = -w + 0.195 + 'px';
             gfxEl.appendChild(chip);
           }
           var posLeft = stratifiedPositions(h, countLeft, 0),
@@ -797,7 +832,6 @@
           });
         }
 
-        /* 텍스트 길이에 따른 테이프 폭 */
         function measureTextWidth(text) {
           var m = document.createElement('span');
           m.style.position = 'absolute';
@@ -821,7 +855,7 @@
           tapeEl.style.width = finalW + 'px';
         }
 
-        /* 생성 */
+        /* ---------- 생성 ---------- */
         function spawn(opt) {
           opt = opt || {};
           var v = (opt.text || '').trim();
@@ -862,7 +896,6 @@
             ) || '0.5'
           );
 
-          /* ▼ 그룹 래퍼와 내부 레이어 구성 */
           var gfx = document.createElement('div');
           gfx.className = 'gfx';
           var bg = document.createElement('div');
@@ -882,7 +915,6 @@
           board.appendChild(n);
           createOverlayLabel(n, v);
 
-          /* 회전: 저장값 있으면 사용, 없으면 -15~+15 랜덤 */
           var rot =
             typeof opt.rot === 'number' ? opt.rot : Math.random() * 30 - 15;
           setRotation(n, rot);
@@ -899,6 +931,29 @@
 
           save();
           return n;
+        }
+
+        /* ---------- 인터랙션 ---------- */
+        function submit() {
+          var v = input.value.trim();
+          if (!v) return;
+          if (v.toLowerCase() === 'tomato') dropTomato();
+          var br = document.querySelector('#bar .roll').getBoundingClientRect();
+          var b = board.getBoundingClientRect();
+          var n = spawn({
+            text: v,
+            color: colorInput.value,
+            x:
+              Math.random() * (board.clientWidth - (cssVar('--tapeW') + 40)) +
+              20,
+            y: Math.max(12, br.top - b.top - (TAPE_H + 32)),
+          });
+          if (n) {
+            selectTape(n);
+            enterRotateMode(n);
+          }
+          input.value = '';
+          input.focus();
         }
 
         function dropTomato() {
@@ -923,28 +978,6 @@
           }, 3000);
         }
 
-        function submit() {
-          var v = input.value.trim();
-          if (!v) return;
-          if (v.toLowerCase() === 'tomato') dropTomato();
-          var br = document.querySelector('#bar .roll').getBoundingClientRect();
-          var b = board.getBoundingClientRect();
-          var n = spawn({
-            text: v,
-            color: colorInput.value,
-            x:
-              Math.random() * (board.clientWidth - (cssVar('--tapeW') + 40)) +
-              20,
-            y: Math.max(12, br.top - b.top - (TAPE_H + 32)),
-          });
-          if (n) {
-            selectTape(n);
-            enterRotateMode(n);
-          }
-          input.value = '';
-          input.focus();
-        }
-
         addBtn.addEventListener('click', submit);
         var composing = false;
         input.addEventListener('compositionstart', function () {
@@ -961,20 +994,7 @@
           }
         });
 
-        resetBtn.addEventListener('click', function () {
-          clearCanvas();
-          save();
-          toast('현재 보드 초기화 완료');
-        });
-
-        /* 보드 관리 */
-        var boardsBtn = document.getElementById('boardsBtn');
-        var boardsPanel = document.getElementById('boardsPanel');
-        var boardsList = document.getElementById('boardsList');
-        var newBoardBtn = document.getElementById('newBoard');
-        var saveAsBtn = document.getElementById('saveAsBoard');
-        var closePanel = document.getElementById('closePanel');
-
+        /* ---------- 보드 패널 UI ---------- */
         boardsBtn.addEventListener('click', function () {
           renderBoardsPanel();
           boardsPanel.style.display =
@@ -983,6 +1003,7 @@
         closePanel.addEventListener('click', function () {
           boardsPanel.style.display = 'none';
         });
+
         newBoardBtn.addEventListener('click', function () {
           var name = prompt('새 보드 이름을 입력하세요', '새 보드');
           if (name && name.trim()) createBoard(name.trim());
@@ -1017,50 +1038,48 @@
             metaEl.textContent = ' 최근 수정 | ' + fmt(b.updatedAt);
             var actions = document.createElement('div');
             actions.className = 'board-actions';
-            var openBtn = document.createElement('button');
-            openBtn.type = 'button';
-            openBtn.className = 'chip-btn';
-            openBtn.textContent = '열기';
-            var renameBtn = document.createElement('button');
-            renameBtn.type = 'button';
-            renameBtn.className = 'chip-btn';
-            renameBtn.textContent = '이름 변경';
-            var dupBtn = document.createElement('button');
-            dupBtn.type = 'button';
-            dupBtn.className = 'chip-btn';
-            dupBtn.textContent = '복제';
-            var delBtn = document.createElement('button');
-            delBtn.type = 'button';
-            delBtn.className = 'chip-btn';
-            delBtn.textContent = '삭제';
-            openBtn.addEventListener('click', function () {
-              setActiveBoard(id);
-            });
-            renameBtn.addEventListener('click', function () {
-              var nn = prompt('보드 이름 변경', b.name || '');
-              if (nn && nn.trim()) renameBoard(id, nn.trim());
-            });
-            dupBtn.addEventListener('click', function () {
-              var nn = prompt('복제본 이름', (b.name || '보드') + ' 복제');
-              if (nn && nn.trim()) {
-                var curActive = store.activeId;
-                store.activeId = id;
-                duplicateActiveBoard(nn.trim());
-                store.activeId = curActive;
-              }
-            });
-            delBtn.addEventListener('click', function () {
-              if (
-                confirm(
-                  '이 보드를 삭제할까요? 한번 삭제하면 되돌릴 수 없습니다.'
+
+            function mkBtn(label, handler) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'chip-btn';
+              btn.textContent = label;
+              btn.addEventListener('click', handler);
+              return btn;
+            }
+            actions.appendChild(
+              mkBtn('열기', function () {
+                setActiveBoard(id);
+              })
+            );
+            actions.appendChild(
+              mkBtn('이름 변경', function () {
+                var nn = prompt('보드 이름 변경', b.name || '');
+                if (nn && nn.trim()) renameBoard(id, nn.trim());
+              })
+            );
+            actions.appendChild(
+              mkBtn('복제', function () {
+                var nn = prompt('복제본 이름', (b.name || '보드') + ' 복제');
+                if (nn && nn.trim()) {
+                  var prev = store.activeId;
+                  store.activeId = id;
+                  duplicateActiveBoard(nn.trim());
+                  store.activeId = prev;
+                }
+              })
+            );
+            actions.appendChild(
+              mkBtn('삭제', function () {
+                if (
+                  confirm(
+                    '이 보드를 삭제할까요? 한번 삭제하면 되돌릴 수 없습니다.'
+                  )
                 )
-              )
-                deleteBoard(id);
-            });
-            actions.appendChild(openBtn);
-            actions.appendChild(renameBtn);
-            actions.appendChild(dupBtn);
-            actions.appendChild(delBtn);
+                  deleteBoard(id);
+              })
+            );
+
             item.appendChild(nameEl);
             item.appendChild(actions);
             item.appendChild(metaEl);
@@ -1068,50 +1087,7 @@
           });
         }
 
-        function loadStore() {
-          try {
-            var raw = localStorage.getItem(LS_MULTI);
-            if (raw) return JSON.parse(raw);
-            var legacy = localStorage.getItem(LS_LEGACY);
-            if (legacy) {
-              var legacyData = JSON.parse(legacy);
-              var id = uuid();
-              var initial = { boards: {}, activeId: id };
-              initial.boards[id] = {
-                id,
-                name: '내 보드',
-                items: legacyData.items || [],
-                updatedAt: nowISO(),
-              };
-              localStorage.setItem(LS_MULTI, JSON.stringify(initial));
-              return initial;
-            }
-          } catch (e) {}
-          return { boards: {}, activeId: null };
-        }
-        function persist() {
-          try {
-            localStorage.setItem(LS_MULTI, JSON.stringify(store));
-          } catch (e) {}
-          renderBoardsPanel();
-        }
-        function ensureStore() {
-          if (!store || !store.boards) store = { boards: {}, activeId: null };
-          if (!store.activeId || !store.boards[store.activeId]) {
-            var id = uuid();
-            store.boards[id] = {
-              id,
-              name: '보드 1',
-              items: [],
-              updatedAt: nowISO(),
-            };
-            store.activeId = id;
-            persist();
-          }
-        }
-        function getActiveBoard() {
-          return store.boards[store.activeId] || null;
-        }
+        /* ---------- 보드 저장 하는 코드 ---------- */
         function setActiveBoard(id) {
           if (!store.boards[id]) return;
           save();
@@ -1125,18 +1101,18 @@
           clearCanvas();
           if (cur) loadItemsToCanvas(cur.items || []);
         }
-
         function createBoard(name) {
           var id = uuid();
           store.boards[id] = {
             id,
-            name: name || '보드 ' + Object.keys(store.boards).length,
+            name: name || '보드 ' + (Object.keys(store.boards).length + 1),
             items: [],
             updatedAt: nowISO(),
           };
           store.activeId = id;
           persist();
           renderActiveBoard();
+          boardsPanel.style.display = 'block';
           toast('새 보드 생성');
         }
         function duplicateActiveBoard(newName) {
@@ -1152,6 +1128,7 @@
           store.activeId = id;
           persist();
           renderActiveBoard();
+          boardsPanel.style.display = 'block';
           toast('보드 복제 완료');
         }
         function renameBoard(id, newName) {
@@ -1159,22 +1136,28 @@
           store.boards[id].name = newName || store.boards[id].name;
           store.boards[id].updatedAt = nowISO();
           persist();
+          renderBoardsPanel();
           toast('이름 변경 완료');
         }
         function deleteBoard(id) {
-          var keys = Object.keys(store.boards);
-          if (!store.boards[id] || keys.length <= 1) {
+          var idsBefore = Object.keys(store.boards);
+          if (!store.boards[id] || idsBefore.length <= 1) {
             toast('보드가 최소 1개는 유지되어야 합니다.');
             return;
           }
+
           delete store.boards[id];
+
           if (store.activeId === id) {
-            store.activeId = keys.filter(function (k) {
-              return k !== id;
-            })[0];
+            var remain = Object.values(store.boards);
+            remain.sort(function (a, b) {
+              return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+            });
+            store.activeId = remain[0]?.id || null;
           }
           persist();
           renderActiveBoard();
+          boardsPanel.style.display = 'block';
           toast('보드 삭제');
         }
 
@@ -1195,8 +1178,13 @@
         window.addEventListener('resize', function () {
           board.querySelectorAll('.tape').forEach(syncOverlayLabelRect);
         });
+        board.addEventListener('pointerdown', function (e) {
+          if (e.target === board) clearSelection();
+        });
+        window.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') clearSelection();
+        });
 
-        /* ====== 드래그/회전 + 더블클릭 고정/해제 (수정 핵심) ====== */
         function makeDraggable(node) {
           var sx = 0,
             sy = 0,
@@ -1204,13 +1192,9 @@
             oy = 0,
             dragging = false,
             pid = null;
-
-          // 더블클릭(탭) 수동 판정용 상태
-          var lastDownTime = 0;
-          var lastDownX = 0;
-          var lastDownY = 0;
-          var DBL_GAP = 280; // ms
-          var DBL_DIST = 6; // px
+          var lastDownTime = 0,
+            lastDownX = 0,
+            lastDownY = 0;
 
           function dist(ax, ay, bx, by) {
             var dx = ax - bx,
@@ -1220,6 +1204,7 @@
 
           function move(e) {
             if (dragging) {
+              if (e.cancelable) e.preventDefault();
               var dx = e.clientX - sx,
                 dy = e.clientY - sy;
               var rB = board.getBoundingClientRect(),
@@ -1236,20 +1221,19 @@
               node.style.top = top + 'px';
               syncOverlayLabelRect(node);
             } else if (rotateDragging) {
+              if (e.cancelable) e.preventDefault();
               var rN = node.getBoundingClientRect();
-              var cx = rN.left + rN.width / 2;
-              var cy = rN.top + rN.height / 2;
+              var cx = rN.left + rN.width / 2,
+                cy = rN.top + rN.height / 2;
               var rad = Math.atan2(e.clientY - cy, e.clientX - cx);
               var deg = rad * (180 / Math.PI);
               var snap = 2;
-              deg = Math.round(deg / snap) * snap; // 미세 스냅
+              deg = Math.round(deg / snap) * snap;
               applyRotationWithSnap(node, deg);
             }
           }
           function up() {
-            if (dragging || rotateDragging) {
-              save();
-            }
+            if (dragging || rotateDragging) save();
             dragging = false;
             rotateDragging = false;
             try {
@@ -1262,32 +1246,29 @@
           node.addEventListener(
             'pointerdown',
             function (e) {
-              if (typeof e.button !== 'undefined' && e.button !== 0) return; // 좌클릭만
-              // e.preventDefault();  // 기본 클릭/더블클릭 차단하지 않도록 제거
+              if (typeof e.button !== 'undefined' && e.button !== 0) return;
               e.stopPropagation();
+
+              var isTouch = e.pointerType === 'touch';
+              var DBL_GAP = isTouch ? 360 : 280;
+              var DBL_DIST = isTouch ? 18 : 6;
 
               var now = performance.now();
               var isDouble =
                 now - lastDownTime < DBL_GAP &&
                 dist(e.clientX, e.clientY, lastDownX, lastDownY) <= DBL_DIST;
 
-              // 더블클릭(더블탭) → 고정/해제 토글 (stuck) + 색상 진하기 조절
               if (isDouble) {
                 var willBeStuck = !node.classList.contains('stuck');
-                if (willBeStuck) {
-                  node.classList.add('stuck');
-                } else {
-                  node.classList.remove('stuck');
-                }
+                if (willBeStuck) node.classList.add('stuck');
+                else node.classList.remove('stuck');
                 setStuckAppearance(node, willBeStuck);
                 exitRotateMode();
                 save();
-                // 다음 클릭으로 이어지지 않게 초기화
                 lastDownTime = 0;
                 return;
               }
 
-              // 싱글 클릭 처리 시작
               lastDownTime = now;
               lastDownX = e.clientX;
               lastDownY = e.clientY;
@@ -1295,11 +1276,10 @@
               selectTape(node);
               node.style.zIndex = ++zStack;
 
-              // stuck이면 드래그/회전 시작 금지. 선택/회전모드 토글은 click에서 처리.
               if (!node.classList.contains('stuck')) {
-                if (node.classList.contains('rotate-mode')) {
+                if (node.classList.contains('rotate-mode'))
                   rotateDragging = true;
-                } else {
+                else {
                   var r = node.getBoundingClientRect(),
                     b = board.getBoundingClientRect();
                   sx = e.clientX;
@@ -1314,34 +1294,36 @@
               try {
                 if (pid != null) node.setPointerCapture(pid);
               } catch (err) {}
-              window.addEventListener('pointermove', move, { passive: true });
+              window.addEventListener('pointermove', move, { passive: false });
               window.addEventListener('pointerup', up, { passive: true });
             },
             { passive: false }
           );
 
           node.addEventListener('click', function () {
-            // 한 번 클릭 → 회전 모드 토글 (stuck이어도 토글만 허용)
             if (node.classList.contains('rotate-mode')) {
               exitRotateMode();
             } else {
               enterRotateMode(node);
             }
           });
-
-          // (기존) dblclick 리스너는 사용하지 않음 — 수동 판정으로 일원화
         }
 
-        // 보드 빈 곳 클릭 시 선택/회전 모드 해제
-        board.addEventListener('mousedown', function (e) {
-          if (e.target === board) {
-            clearSelection();
-          }
-        });
-        window.addEventListener('keydown', function (e) {
-          if (e.key === 'Escape') {
-            clearSelection();
-          }
+        /* ---------- 초기화 ---------- */
+        function updatePreviewInit() {
+          updatePreview();
+        }
+        function boot() {
+          ensureStore();
+          renderActiveBoard();
+          updatePreviewInit();
+        }
+        boot();
+
+        resetBtn.addEventListener('click', function () {
+          clearCanvas();
+          save();
+          toast('현재 보드 초기화 완료');
         });
       })();
     </script>
